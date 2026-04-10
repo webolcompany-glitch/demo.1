@@ -20,24 +20,8 @@ st.markdown(f"## 🏢 Azienda: {azienda.upper()}")
 # =========================
 # 💬 MESSAGGI FISSI
 # =========================
-EMAIL_TEMPLATE = """Buongiorno,
-
-Le comunichiamo il prezzo carburante aggiornato:
-
-👉 {prezzo} €/L
-
-Per qualsiasi informazione siamo a disposizione.
-
-Cordiali saluti"""
-WA_TEMPLATE = """Buongiorno,
-
-Le comunichiamo il prezzo carburante aggiornato:
-
-👉 {prezzo} €/L
-
-Per qualsiasi informazione siamo a disposizione.
-
-Cordiali saluti"""
+EMAIL_TEMPLATE = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie"
+WA_TEMPLATE = "Prezzo oggi {prezzo} €/L"
 
 # =========================
 # 📧 EMAIL
