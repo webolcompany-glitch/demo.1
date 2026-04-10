@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 st.set_page_config(page_title="Fuel SaaS", layout="wide")
 
 # =========================
-# 🏢 MULTI AZIENDA
+# 🏢 AZIENDA
 # =========================
 azienda = st.query_params.get("azienda", "demo")
 if isinstance(azienda, list):
@@ -40,7 +40,7 @@ def invia_email(destinatario, prezzo):
         st.error(f"Errore email: {e}")
 
 # =========================
-# 🔒 NO ROUND (TRUNC 3 DEC)
+# 🔒 3 DECIMALI SENZA ROUND
 # =========================
 def trim_3_decimals(x):
     if x is None or pd.isna(x):
@@ -48,7 +48,7 @@ def trim_3_decimals(x):
     return math.floor(float(x) * 1000) / 1000
 
 # =========================
-# 🇮🇹 FORMAT
+# 🇮🇹 FORMATO EUROPEO
 # =========================
 def format_euro(x):
     if x is None or pd.isna(x):
@@ -125,7 +125,7 @@ with c3:
 st.divider()
 
 # =========================
-# CARD
+# CARD UI
 # =========================
 def card(title, value):
     return f"""
@@ -179,17 +179,17 @@ if st.session_state.page == "dashboard":
         st.markdown(card("📊 Margine medio per litro", format_euro(media_margine)), unsafe_allow_html=True)
 
     with c4:
-        st.markdown(card("💰 Prezzo medio di vendita", format_euro(prezzo_medio)), unsafe_allow_html=True)
+        st.markdown(card("💰 Prezzo di vendita oggi (medio)", format_euro(prezzo_medio)), unsafe_allow_html=True)
 
     st.divider()
 
     # =========================
-    # 🔍 SEARCH DASHBOARD
+    # 👤 CLIENTI + SEARCH
     # =========================
+    st.markdown("### 👤 Clienti")
+
     search_dash = st.text_input("🔍 Cerca cliente", key="search_dashboard")
     filtered_dash = filtra_clienti(df, search_dash)
-
-    st.markdown("### 👤 Clienti")
 
     for _, c in filtered_dash.iterrows():
 
@@ -203,7 +203,7 @@ if st.session_state.page == "dashboard":
         st.markdown(f"""
         ### 👤 {c['Nome']}
         📄 P.IVA: {c['PIVA']}  
-        💰 **{format_euro(prezzo)} €/L**  
+        💰 **Prezzo di vendita oggi: {format_euro(prezzo)} €/L**  
         📌 Ultimo prezzo inviato: **{ultimo_txt}**
         """)
 
@@ -236,7 +236,7 @@ if st.session_state.page == "dashboard":
                     ] = prezzo_send
 
                     save_data(st.session_state.clienti)
-                    st.success("Inviata")
+                    st.success("Email inviata")
 
         with col3:
             if st.button("🗑️ Elimina", key=f"del_{c['ID']}"):
