@@ -25,10 +25,14 @@ PASSWORD_APP = "neqr ewtb bdkr lmca"
 
 def invia_email(destinatario, prezzo):
     try:
-        msg = MIMEText(f"Buongiorno,\n\nIl prezzo di oggi è {prezzo:.3f} €/L\n\nGrazie")
-        msg["Subject"] = "Prezzo carburante"
-        msg["From"] = EMAIL_MITTENTE
-        msg["To"] = destinatario
+        from datetime import datetime
+
+data = datetime.now().strftime("%d/%m/%Y")
+
+msg = MIMEText(f"Buongiorno,\n\nIl prezzo di oggi è {prezzo:.3f} €/L\n\nGrazie")
+msg["Subject"] = f"OFFERTA CARBURANTE - {data}"
+msg["From"] = EMAIL_MITTENTE
+msg["To"] = destinatario
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
