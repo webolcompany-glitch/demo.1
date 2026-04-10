@@ -20,7 +20,7 @@ st.markdown(f"## 🏢 Azienda: {azienda.upper()}")
 # =========================
 # 💬 MESSAGGI FISSI
 # =========================
-EMAIL_TEMPLATE = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie" 
+EMAIL_TEMPLATE = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie"
 WA_TEMPLATE = "Prezzo oggi {prezzo} €/L"
 
 # =========================
@@ -232,6 +232,7 @@ if st.session_state.page == "dashboard":
 
         with col1:
             tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
+
             msg = WA_TEMPLATE.replace("{prezzo}", format_euro(prezzo))
             wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
 
