@@ -40,17 +40,20 @@ def invia_email(destinatario, prezzo):
         st.error(f"Errore email: {e}")
 
 # =========================
-# 🔒 DECIMALI SICURI (NO LOSS)
+# 🔒 DECIMALI SICURI
 # =========================
-def trim_3_decimals(x):
-    if x is None or pd.isna(x):
-        return None
-    return float(Decimal(str(x)).quantize(Decimal("0.001"), rounding=ROUND_DOWN))
+def to_decimal(x):
+    if x is None or x == "":
+        return 0.0
+    return float(
+        Decimal(str(x).replace(",", "."))
+        .quantize(Decimal("0.001"), rounding=ROUND_DOWN)
+    )
 
 def format_euro(x):
     if x is None or pd.isna(x):
         return "0,000"
-    return f"{float(Decimal(str(x)).quantize(Decimal('0.001'), rounding=ROUND_DOWN)):.3f}".replace(".", ",")
+    return f"{to_decimal(x):.3f}".replace(".", ",")
 
 # =========================
 # 💾 DATA
@@ -148,9 +151,10 @@ if st.session_state.page == "dashboard":
     st.session_state.prezzo_base = prezzo_base
 
     clienti_count = len(df)
-    media_margine = trim_3_decimals(df["Margine"].mean()) if not df.empty else 0
 
-    prezzo_medio = trim_3_decimals(
+    media_margine = to_decimal(df["Margine"].mean()) if not df.empty else 0
+
+    prezzo_medio = to_decimal(
         (df["Margine"] + df["Trasporto"] + prezzo_base).mean()
     ) if not df.empty else prezzo_base
 
@@ -173,7 +177,7 @@ if st.session_state.page == "dashboard":
     st.divider()
 
     # =========================
-    # 🚀 INVIO MASSIVO EMAIL
+    # 🚀 MASS EMAIL
     # =========================
     st.markdown("### 🚀 Azioni rapide")
 
@@ -185,8 +189,8 @@ if st.session_state.page == "dashboard":
 
             if c["Email"] and pd.notna(c["Email"]):
 
-                prezzo = trim_3_decimals(
-                    prezzo_base + c["Margine"] + c["Trasporto"]
+                prezzo = to_decimal(
+                    prezzo_base + float(c["Margine"]) + float(c["Trasporto"])
                 )
 
                 invia_email(c["Email"], prezzo)
@@ -211,8 +215,8 @@ if st.session_state.page == "dashboard":
 
     for _, c in filtered_dash.iterrows():
 
-        prezzo = trim_3_decimals(
-            prezzo_base + c["Margine"] + c["Trasporto"]
+        prezzo = to_decimal(
+            prezzo_base + float(c["Margine"]) + float(c["Trasporto"])
         )
 
         ultimo = c.get("UltimoPrezzo", None)
@@ -244,7 +248,7 @@ if st.session_state.page == "dashboard":
             if c["Email"] and pd.notna(c["Email"]):
                 if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
 
-                    prezzo_send = trim_3_decimals(prezzo)
+                    prezzo_send = to_decimal(prezzo)
 
                     invia_email(c["Email"], prezzo_send)
 
@@ -323,8 +327,9 @@ elif st.session_state.page == "cliente":
     tel = st.text_input("Telefono", value=c["Telefono"])
     email = st.text_input("Email", value=c["Email"])
 
-    margine = st.number_input("Margine", value=float(c["Margine"]), step=0.001)
-    trasporto = st.number_input("Trasporto", value=float(c["Trasporto"]), step=0.001)
+    # 🔥 FIX DEFINITIVO: input libero ma sicuro
+    margine = to_decimal(st.text_input("Margine", value=str(c["Margine"])))
+    trasporto = to_decimal(st.text_input("Trasporto", value=str(c["Trasporto"])))
 
     if st.button("💾 Salva"):
 
