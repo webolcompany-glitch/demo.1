@@ -200,6 +200,69 @@ if st.session_state.page == "dashboard":
         save_data(st.session_state.clienti)
         st.success(f"📧 Email inviate a {count} clienti")
 
+    st.markdown("### 👤 Clienti")
+
+    search_dash = st.text_input("🔍 Cerca cliente", key="search_dashboard")
+    filtered_dash = filtra_clienti(df, search_dash)
+
+    for _, c in filtered_dash.iterrows():
+
+        prezzo = trim_3_decimals(
+            prezzo_base + c["Margine"] + c["Trasporto"]
+        )
+
+        ultimo = c.get("UltimoPrezzo", None)
+        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
+
+        st.markdown(f"""
+        ### 👤 {c['Nome']}
+        📄 P.IVA: {c['PIVA']}  
+        💰 **Prezzo di vendita oggi: {format_euro(prezzo)} €/L**  
+        📌 Ultimo prezzo inviato: **{ultimo_txt}**
+        """)
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
+            msg = f"Prezzo oggi {format_euro(prezzo)} €/L"
+            wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
+
+            st.markdown(
+                f"""<a href="{wa}" target="_blank"
+                style="display:block;padding:8px;background:#22c55e;color:white;
+                text-align:center;border-radius:10px;">
+                💬 Messaggio</a>""",
+                unsafe_allow_html=True
+            )
+
+        with col2:
+            if c["Email"] and pd.notna(c["Email"]):
+                if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
+
+                    prezzo_send = trim_3_decimals(prezzo)
+
+                    invia_email(c["Email"], prezzo_send)
+
+                    st.session_state.clienti.loc[
+                        st.session_state.clienti["ID"] == c["ID"],
+                        "UltimoPrezzo"
+                    ] = prezzo_send
+
+                    save_data(st.session_state.clienti)
+                    st.success("Email inviata")
+
+        with col3:
+            if st.button("🗑️ Elimina", key=f"del_{c['ID']}"):
+                st.session_state.clienti = df[df["ID"] != c["ID"]]
+                save_data(st.session_state.clienti)
+                st.rerun()
+
+        st.divider()
+
+# =========================================================
+# ➕ CLIENTE (FIX QUI)
+# =========================================================
 elif st.session_state.page == "cliente":
 
     st.markdown("## ➕ Cliente")
@@ -228,16 +291,25 @@ elif st.session_state.page == "cliente":
             st.session_state.clienti.loc[
                 st.session_state.clienti["ID"] == st.session_state.edit_id,
                 ["Nome","PIVA","Telefono","Email","Margine","Trasporto"]
-            ] = [
-                nome,
-                piva,
-                tel,
-                email,
-                float(margine),
-                float(trasporto)
-            ]
+            ] = [nome,piva,tel,email,float(margine),float(trasporto)]
 
             st.session_state.edit_id = None
+
+        else:
+            new_id = 1 if df.empty else int(df["ID"].max()) + 1
+
+            new = pd.DataFrame([{
+                "ID": new_id,
+                "Nome": nome,
+                "PIVA": piva,
+                "Telefono": tel,
+                "Email": email,
+                "Margine": float(margine),
+                "Trasporto": float(trasporto),
+                "UltimoPrezzo": None
+            }])
+
+            st.session_state.clienti = pd.concat([df, new], ignore_index=True)
 
         save_data(st.session_state.clienti)
         st.success("Salvato")
