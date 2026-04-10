@@ -18,6 +18,12 @@ FILE = f"clienti_{azienda}.csv"
 st.markdown(f"## 🏢 Azienda: {azienda.upper()}")
 
 # =========================
+# 💬 MESSAGGI FISSI
+# =========================
+EMAIL_TEMPLATE = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie"
+WA_TEMPLATE = "Prezzo oggi {prezzo} €/L"
+
+# =========================
 # 📧 EMAIL
 # =========================
 EMAIL_MITTENTE = "webolcompany@gmail.com"
@@ -25,7 +31,7 @@ PASSWORD_APP = "YOUR_APP_PASSWORD"
 
 def invia_email(destinatario, prezzo):
     try:
-        testo = st.session_state.msg_email.replace("{prezzo}", f"{prezzo:.3f}")
+        testo = EMAIL_TEMPLATE.replace("{prezzo}", f"{prezzo:.3f}")
 
         msg = MIMEText(testo)
         msg["Subject"] = "Prezzo carburante"
@@ -37,6 +43,7 @@ def invia_email(destinatario, prezzo):
         server.login(EMAIL_MITTENTE, PASSWORD_APP)
         server.send_message(msg)
         server.quit()
+
     except Exception as e:
         st.error(f"Errore email: {e}")
 
@@ -87,7 +94,7 @@ def save_data(df):
     df.to_csv(FILE, index=False)
 
 # =========================
-# INIT SESSION
+# INIT
 # =========================
 if "clienti" not in st.session_state:
     st.session_state.clienti = load_data()
@@ -100,13 +107,6 @@ if "edit_id" not in st.session_state:
 
 if "prezzo_base" not in st.session_state:
     st.session_state.prezzo_base = 1.000
-
-# 💬 MESSAGGI PERSONALIZZATI
-if "msg_email" not in st.session_state:
-    st.session_state.msg_email = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie"
-
-if "msg_wa" not in st.session_state:
-    st.session_state.msg_wa = "Prezzo oggi {prezzo} €/L"
 
 df = st.session_state.clienti
 
@@ -157,13 +157,8 @@ if st.session_state.page == "dashboard":
 
     st.session_state.prezzo_base = prezzo_base
 
-    # ✉️ EDIT MESSAGGI
-    st.markdown("### ✉️ Messaggi personalizzati")
-
-    st.text_area("Messaggio EMAIL", key="msg_email", height=120)
-    st.text_area("Messaggio WhatsApp", key="msg_wa", height=80)
-
     clienti_count = len(df)
+
     media_margine = round(df["Margine"].mean(), 3) if not df.empty else 0
 
     prezzo_medio = (
@@ -213,7 +208,7 @@ if st.session_state.page == "dashboard":
         st.success(f"Email inviate: {count}")
 
     # =========================
-    # LISTA CLIENTI
+    # CLIENTI LISTA
     # =========================
     st.markdown("### 👤 Clienti")
 
@@ -224,8 +219,7 @@ if st.session_state.page == "dashboard":
 
         prezzo = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
 
-        ultimo = c["UltimoPrezzo"]
-        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
+        ultimo_txt = "Nessun invio" if pd.isna(c["UltimoPrezzo"]) else format_euro(c["UltimoPrezzo"]) + " €/L"
 
         st.markdown(f"""
         ### 👤 {c['Nome']}
@@ -238,7 +232,7 @@ if st.session_state.page == "dashboard":
 
         with col1:
             tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
-            msg = st.session_state.msg_wa.replace("{prezzo}", format_euro(prezzo))
+            msg = WA_TEMPLATE.replace("{prezzo}", format_euro(prezzo))
             wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
 
             st.markdown(
