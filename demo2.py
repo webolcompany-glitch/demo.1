@@ -36,12 +36,11 @@ def invia_email(destinatario, prezzo):
         server.login(EMAIL_MITTENTE, PASSWORD_APP)
         server.send_message(msg)
         server.quit()
-
     except Exception as e:
         st.error(f"Errore email: {e}")
 
 # =========================
-# 🔒 TRUNCAMENTO (NO ROUND)
+# 🔒 NO ROUND (TRUNC 3 DEC)
 # =========================
 def trim_3_decimals(x):
     if x is None or pd.isna(x):
@@ -49,7 +48,7 @@ def trim_3_decimals(x):
     return math.floor(float(x) * 1000) / 1000
 
 # =========================
-# 🇮🇹 FORMATO EUROPEO
+# 🇮🇹 FORMAT
 # =========================
 def format_euro(x):
     if x is None or pd.isna(x):
@@ -57,15 +56,14 @@ def format_euro(x):
     return f"{trim_3_decimals(x):.3f}".replace(".", ",")
 
 # =========================
-# 💾 LOAD / SAVE
+# 💾 DATA
 # =========================
 def load_data():
     if os.path.exists(FILE):
         df = pd.read_csv(FILE)
 
-        for col in ["UltimoPrezzo"]:
-            if col not in df.columns:
-                df[col] = None
+        if "UltimoPrezzo" not in df.columns:
+            df["UltimoPrezzo"] = None
 
         return df
 
@@ -78,7 +76,7 @@ def save_data(df):
     df.to_csv(FILE, index=False)
 
 # =========================
-# 🔍 SEARCH SICURO
+# 🔍 SEARCH SAFE
 # =========================
 def filtra_clienti(df, search):
     if not search:
@@ -127,7 +125,7 @@ with c3:
 st.divider()
 
 # =========================
-# CARD UI
+# CARD
 # =========================
 def card(title, value):
     return f"""
@@ -185,10 +183,15 @@ if st.session_state.page == "dashboard":
 
     st.divider()
 
-    # 👤 LISTA CLIENTI (NO SEARCH QUI)
+    # =========================
+    # 🔍 SEARCH DASHBOARD
+    # =========================
+    search_dash = st.text_input("🔍 Cerca cliente", key="search_dashboard")
+    filtered_dash = filtra_clienti(df, search_dash)
+
     st.markdown("### 👤 Clienti")
 
-    for _, c in df.iterrows():
+    for _, c in filtered_dash.iterrows():
 
         prezzo = trim_3_decimals(
             prezzo_base + c["Margine"] + c["Trasporto"]
@@ -244,7 +247,7 @@ if st.session_state.page == "dashboard":
         st.divider()
 
 # =========================================================
-# 👤 CLIENTI (SEARCH QUI)
+# 👤 CLIENTI
 # =========================================================
 elif st.session_state.page == "clienti":
 
@@ -281,7 +284,7 @@ elif st.session_state.page == "clienti":
         st.divider()
 
 # =========================================================
-# ➕ CLIENTE FORM
+# ➕ CLIENTE
 # =========================================================
 elif st.session_state.page == "cliente":
 
