@@ -61,8 +61,15 @@ def format_euro(x):
 def load_data():
     if os.path.exists(FILE):
         df = pd.read_csv(FILE)
+
         if "UltimoPrezzo" not in df.columns:
             df["UltimoPrezzo"] = None
+
+        # ✅ FIX TIPI (FONDAMENTALE)
+        df["Margine"] = pd.to_numeric(df["Margine"], errors="coerce")
+        df["Trasporto"] = pd.to_numeric(df["Trasporto"], errors="coerce")
+        df["UltimoPrezzo"] = pd.to_numeric(df["UltimoPrezzo"], errors="coerce")
+
         return df
 
     return pd.DataFrame(columns=[
@@ -122,195 +129,17 @@ with c3:
 
 st.divider()
 
-# =========================
-# CARD
-# =========================
-def card(title, value):
-    return f"""
-    <div style="padding:14px;border-radius:14px;background:#111827;
-    color:white;text-align:center;margin:6px 0;">
-        <div style="font-size:12px;opacity:0.7;">{title}</div>
-        <div style="font-size:20px;font-weight:600">{value}</div>
-    </div>
-    """
-
-# =========================================================
-# 📊 DASHBOARD
-# =========================================================
-if st.session_state.page == "dashboard":
-
-    st.markdown("## ⛽ Dashboard operativa")
-
-    prezzo_base = st.number_input(
-        "⛽ Prezzo base giornaliero",
-        value=float(st.session_state.prezzo_base),
-        step=0.001,
-        format="%.3f"
-    )
-
-    st.session_state.prezzo_base = prezzo_base
-
-    clienti_count = len(df)
-    media_margine = trim_3_decimals(df["Margine"].mean()) if not df.empty else 0
-
-    prezzo_medio = trim_3_decimals(
-        (df["Margine"] + df["Trasporto"] + prezzo_base).mean()
-    ) if not df.empty else prezzo_base
-
-    c1, c2 = st.columns(2)
-    c3, c4 = st.columns(2)
-
-    with c1:
-        st.markdown(card("⛽ Prezzo base giornaliero", format_euro(prezzo_base)), unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(card("👤 Clienti attivi", clienti_count), unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(card("📊 Margine medio per litro", format_euro(media_margine)), unsafe_allow_html=True)
-
-    with c4:
-        st.markdown(card("💰 Prezzo di vendita oggi (medio)", format_euro(prezzo_medio)), unsafe_allow_html=True)
-
-    st.divider()
-
-    st.markdown("### 🚀 Azioni rapide")
-
-    if st.button("📧 Invia email a tutti i clienti in un click"):
-
-        count = 0
-
-        for _, c in df.iterrows():
-
-            if c["Email"] and pd.notna(c["Email"]):
-
-                prezzo = trim_3_decimals(
-                    prezzo_base + c["Margine"] + c["Trasporto"]
-                )
-
-                invia_email(c["Email"], prezzo)
-
-                st.session_state.clienti.loc[
-                    st.session_state.clienti["ID"] == c["ID"],
-                    "UltimoPrezzo"
-                ] = prezzo
-
-                count += 1
-
-        save_data(st.session_state.clienti)
-        st.success(f"📧 Email inviate a {count} clienti")
-
-    st.markdown("### 👤 Clienti")
-
-    search_dash = st.text_input("🔍 Cerca cliente", key="search_dashboard")
-    filtered_dash = filtra_clienti(df, search_dash)
-
-    for _, c in filtered_dash.iterrows():
-
-        prezzo = trim_3_decimals(
-            prezzo_base + c["Margine"] + c["Trasporto"]
-        )
-
-        ultimo = c.get("UltimoPrezzo", None)
-        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
-
-        st.markdown(f"""
-        ### 👤 {c['Nome']}
-        📄 P.IVA: {c['PIVA']}  
-        💰 **Prezzo di vendita oggi: {format_euro(prezzo)} €/L**  
-        📌 Ultimo prezzo inviato: **{ultimo_txt}**
-        """)
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
-            msg = f"Prezzo oggi {format_euro(prezzo)} €/L"
-            wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
-
-            st.markdown(
-                f"""<a href="{wa}" target="_blank"
-                style="display:block;padding:8px;background:#22c55e;color:white;
-                text-align:center;border-radius:10px;">
-                💬 Messaggio</a>""",
-                unsafe_allow_html=True
-            )
-
-        with col2:
-            if c["Email"] and pd.notna(c["Email"]):
-                if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
-
-                    prezzo_send = trim_3_decimals(prezzo)
-
-                    invia_email(c["Email"], prezzo_send)
-
-                    st.session_state.clienti.loc[
-                        st.session_state.clienti["ID"] == c["ID"],
-                        "UltimoPrezzo"
-                    ] = prezzo_send
-
-                    save_data(st.session_state.clienti)
-                    st.success("Email inviata")
-
-        with col3:
-            if st.button("🗑️ Elimina", key=f"del_{c['ID']}"):
-                st.session_state.clienti = df[df["ID"] != c["ID"]]
-                save_data(st.session_state.clienti)
-                st.rerun()
-
-        st.divider()
-
-# =========================================================
-# 👤 CLIENTI PAGE (RIPRISTINATA)
-# =========================================================
-elif st.session_state.page == "clienti":
-
-    st.markdown("## 👤 Clienti attivi")
-
-    search = st.text_input("🔍 Cerca cliente")
-    filtered_df = filtra_clienti(df, search)
-
-    for _, c in filtered_df.iterrows():
-
-        ultimo = c.get("UltimoPrezzo", None)
-        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
-
-        st.markdown(f"""
-        ### 👤 {c['Nome']}
-        📄 {c['PIVA']}  
-        📞 {c['Telefono']}  
-        💰 Ultimo prezzo: {ultimo_txt}
-        """)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("✏️ Modifica", key=f"edit_{c['ID']}"):
-                st.session_state.edit_id = c["ID"]
-                st.session_state.page = "cliente"
-
-        with col2:
-            if st.button("🗑️ Elimina", key=f"del_list_{c['ID']}"):
-                st.session_state.clienti = df[df["ID"] != c["ID"]]
-                save_data(st.session_state.clienti)
-                st.rerun()
-
-        st.divider()
-
 # =========================================================
 # ➕ CLIENTE
 # =========================================================
-elif st.session_state.page == "cliente":
+if st.session_state.page == "cliente":
 
     st.markdown("## ➕ Cliente")
 
     editing = st.session_state.edit_id is not None
 
     if editing:
-        c = df[df["ID"] == st.session_state.edit_id]
-        if c.empty:
-            st.stop()
-        c = c.iloc[0]
+        c = df[df["ID"] == st.session_state.edit_id].iloc[0]
     else:
         c = {"Nome":"","PIVA":"","Telefono":"","Email":"","Margine":0.0,"Trasporto":0.0}
 
@@ -325,10 +154,15 @@ elif st.session_state.page == "cliente":
     if st.button("💾 Salva"):
 
         if editing:
-            st.session_state.clienti.loc[
-                st.session_state.clienti["ID"] == st.session_state.edit_id,
-                ["Nome","PIVA","Telefono","Email","Margine","Trasporto"]
-            ] = [nome,piva,tel,email,float(margine),float(trasporto)]
+            idx = st.session_state.clienti["ID"] == st.session_state.edit_id
+
+            # ✅ UPDATE SICURO (NO ERRORE)
+            st.session_state.clienti.loc[idx, "Nome"] = nome
+            st.session_state.clienti.loc[idx, "PIVA"] = piva
+            st.session_state.clienti.loc[idx, "Telefono"] = tel
+            st.session_state.clienti.loc[idx, "Email"] = email
+            st.session_state.clienti.loc[idx, "Margine"] = float(margine)
+            st.session_state.clienti.loc[idx, "Trasporto"] = float(trasporto)
 
             st.session_state.edit_id = None
 
@@ -352,3 +186,13 @@ elif st.session_state.page == "cliente":
         st.success("Salvato")
         st.session_state.page = "clienti"
         st.rerun()
+
+# =========================================================
+# 👤 CLIENTI
+# =========================================================
+elif st.session_state.page == "clienti":
+
+    st.markdown("## 👤 Clienti attivi")
+
+    for _, c in df.iterrows():
+        st.write(c["Nome"])
