@@ -40,14 +40,22 @@ def invia_email(destinatario, prezzo):
         st.error(f"Errore email: {e}")
 
 # =========================
-# 💾 DATA
+# 💾 LOAD / SAVE (SAFE)
 # =========================
 def load_data():
     if os.path.exists(FILE):
         df = pd.read_csv(FILE)
-        if "UltimoPrezzo" not in df.columns:
-            df["UltimoPrezzo"] = None
-        return df
+
+        required_cols = [
+            "ID","Nome","PIVA","Telefono","Email",
+            "Margine","Trasporto","UltimoPrezzo"
+        ]
+
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = None
+
+        return df[required_cols]
 
     return pd.DataFrame(columns=[
         "ID","Nome","PIVA","Telefono","Email",
@@ -58,7 +66,7 @@ def save_data(df):
     df.to_csv(FILE, index=False)
 
 # =========================
-# 🔎 SEARCH FUNCTION
+# 🔎 SEARCH
 # =========================
 def filtra_clienti(df, search):
     if not search:
@@ -71,7 +79,7 @@ def filtra_clienti(df, search):
     ]
 
 # =========================
-# INIT
+# INIT STATE
 # =========================
 if "clienti" not in st.session_state:
     st.session_state.clienti = load_data()
@@ -88,7 +96,7 @@ if "prezzo_base" not in st.session_state:
 df = st.session_state.clienti
 
 # =========================
-# 🧭 NAVIGATION
+# NAVIGATION
 # =========================
 c1, c2, c3 = st.columns(3)
 
@@ -107,7 +115,7 @@ with c3:
 st.divider()
 
 # =========================
-# 🎨 CARD UI
+# CARD UI
 # =========================
 def card(title, value):
     return f"""
@@ -140,7 +148,7 @@ if st.session_state.page == "dashboard":
 
     st.session_state.prezzo_base = prezzo_base
 
-    # 🔎 SEARCH
+    # SEARCH
     search = st.text_input("🔍 Cerca cliente")
     filtered_df = filtra_clienti(df, search)
 
@@ -167,9 +175,7 @@ if st.session_state.page == "dashboard":
 
     st.divider()
 
-    # =========================
-    # 🚀 INVIO MASSIVO EMAIL
-    # =========================
+    # MASS EMAIL
     st.markdown("### 🚀 Invio prezzi")
 
     if st.button("📧 Invia email a tutti i clienti in un click", use_container_width=True):
@@ -194,21 +200,23 @@ if st.session_state.page == "dashboard":
 
     st.divider()
 
-    # =========================
-    # 👤 CLIENTI LIST (DASHBOARD)
-    # =========================
+    # CLIENT LIST
     for _, c in filtered_df.iterrows():
 
         prezzo = prezzo_base + c["Margine"] + c["Trasporto"]
-        ultimo = c["UltimoPrezzo"]
+        ultimo = c.get("UltimoPrezzo", None)
+
+        if pd.isna(ultimo) or ultimo is None:
+            ultimo_txt = "Nessun invio"
+        else:
+            ultimo_txt = f"{float(ultimo):.3f} €/L"
 
         st.markdown(f"""
         ### 👤 {c['Nome']}
         📄 P.IVA: {c['PIVA']}  
-        💰 **{prezzo:.3f} €/L**  
+        💰 **{prezzo:.3f} €/L**
 
-        📌 Ultimo prezzo inviato: 
-        **{f'{ultimo:.3f} €/L' if pd.notna(ultimo) else 'Nessun invio'}**
+        📌 Ultimo prezzo inviato: **{ultimo_txt}**
         """)
 
         col1, col2, col3 = st.columns(3)
@@ -229,6 +237,7 @@ if st.session_state.page == "dashboard":
         with col2:
             if c["Email"] and pd.notna(c["Email"]):
                 if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
+
                     invia_email(c["Email"], prezzo)
 
                     st.session_state.clienti.loc[
@@ -248,7 +257,7 @@ if st.session_state.page == "dashboard":
         st.divider()
 
 # =========================================================
-# 👤 CLIENTI PAGE
+# 👤 CLIENTI
 # =========================================================
 elif st.session_state.page == "clienti":
 
@@ -259,11 +268,14 @@ elif st.session_state.page == "clienti":
 
     for _, c in filtered_df.iterrows():
 
+        ultimo = c.get("UltimoPrezzo", None)
+        ultimo_txt = "Nessun invio" if pd.isna(ultimo) or ultimo is None else f"{float(ultimo):.3f} €/L"
+
         st.markdown(f"""
         ### 👤 {c['Nome']}
         📄 {c['PIVA']}  
         📞 {c['Telefono']}  
-        💰 Ultimo prezzo: {c['UltimoPrezzo'] if pd.notna(c['UltimoPrezzo']) else 'Nessun invio'}
+        💰 Ultimo prezzo: {ultimo_txt}
         """)
 
         col1, col2 = st.columns(2)
