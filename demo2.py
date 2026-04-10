@@ -25,9 +25,7 @@ PASSWORD_APP = "YOUR_APP_PASSWORD"
 
 def invia_email(destinatario, prezzo):
     try:
-        msg = MIMEText(
-            f"Buongiorno,\n\nIl prezzo di oggi è {prezzo:.3f} €/L\n\nGrazie"
-        )
+        msg = MIMEText(f"Buongiorno,\n\nIl prezzo di oggi è {prezzo:.3f} €/L\n\nGrazie")
         msg["Subject"] = "Prezzo carburante"
         msg["From"] = EMAIL_MITTENTE
         msg["To"] = destinatario
@@ -46,14 +44,35 @@ def invia_email(destinatario, prezzo):
 # =========================
 def load_data():
     if os.path.exists(FILE):
-        return pd.read_csv(FILE)
+        df = pd.read_csv(FILE)
+        if "UltimoPrezzo" not in df.columns:
+            df["UltimoPrezzo"] = None
+        return df
+
     return pd.DataFrame(columns=[
-        "ID", "Nome", "PIVA", "Telefono", "Email", "Margine", "Trasporto"
+        "ID","Nome","PIVA","Telefono","Email",
+        "Margine","Trasporto","UltimoPrezzo"
     ])
 
 def save_data(df):
     df.to_csv(FILE, index=False)
 
+# =========================
+# 🔎 SEARCH FUNCTION
+# =========================
+def filtra_clienti(df, search):
+    if not search:
+        return df
+
+    return df[
+        df["Nome"].str.contains(search, case=False, na=False) |
+        df["PIVA"].str.contains(search, case=False, na=False) |
+        df["Telefono"].astype(str).str.contains(search, na=False)
+    ]
+
+# =========================
+# INIT
+# =========================
 if "clienti" not in st.session_state:
     st.session_state.clienti = load_data()
 
@@ -69,7 +88,7 @@ if "prezzo_base" not in st.session_state:
 df = st.session_state.clienti
 
 # =========================
-# 🧭 NAVIGATION (UI pulita)
+# 🧭 NAVIGATION
 # =========================
 c1, c2, c3 = st.columns(3)
 
@@ -113,7 +132,7 @@ if st.session_state.page == "dashboard":
     st.markdown("## ⛽ Dashboard operativa")
 
     prezzo_base = st.number_input(
-        "💰 Prezzo base",
+        "⛽ Prezzo base giornaliero",
         value=float(st.session_state.prezzo_base),
         step=0.001,
         format="%.3f"
@@ -121,25 +140,30 @@ if st.session_state.page == "dashboard":
 
     st.session_state.prezzo_base = prezzo_base
 
+    # 🔎 SEARCH
+    search = st.text_input("🔍 Cerca cliente")
+    filtered_df = filtra_clienti(df, search)
+
     # KPI
     clienti_count = len(df)
     media_margine = df["Margine"].mean() if not df.empty else 0
     prezzo_medio = (df["Margine"] + df["Trasporto"]).add(prezzo_base).mean() if not df.empty else prezzo_base
 
+    # CARDS
     c1, c2 = st.columns(2)
     c3, c4 = st.columns(2)
 
     with c1:
-        st.markdown(card("⛽ Prezzo base", f"{prezzo_base:.3f} €"), unsafe_allow_html=True)
+        st.markdown(card("⛽ Prezzo base giornaliero", f"{prezzo_base:.3f} €"), unsafe_allow_html=True)
 
     with c2:
-        st.markdown(card("👤 Clienti", clienti_count), unsafe_allow_html=True)
+        st.markdown(card("👤 Clienti attivi", clienti_count), unsafe_allow_html=True)
 
     with c3:
-        st.markdown(card("📊 Margine medio", f"{media_margine:.3f}"), unsafe_allow_html=True)
+        st.markdown(card("📊 Margine medio per litro", f"{media_margine:.3f}"), unsafe_allow_html=True)
 
     with c4:
-        st.markdown(card("💰 Prezzo medio", f"{prezzo_medio:.3f}"), unsafe_allow_html=True)
+        st.markdown(card("💰 Prezzo medio di vendita", f"{prezzo_medio:.3f}"), unsafe_allow_html=True)
 
     st.divider()
 
@@ -148,52 +172,73 @@ if st.session_state.page == "dashboard":
     # =========================
     st.markdown("### 🚀 Invio prezzi")
 
-    if st.button("📧 Invia a tutti i clienti", use_container_width=True):
+    if st.button("📧 Invia email a tutti i clienti in un click", use_container_width=True):
 
         count = 0
 
         for _, c in df.iterrows():
             if c["Email"] and pd.notna(c["Email"]):
+
                 prezzo = prezzo_base + c["Margine"] + c["Trasporto"]
                 invia_email(c["Email"], prezzo)
+
+                st.session_state.clienti.loc[
+                    st.session_state.clienti["ID"] == c["ID"],
+                    "UltimoPrezzo"
+                ] = prezzo
+
                 count += 1
 
+        save_data(st.session_state.clienti)
         st.success(f"Inviate {count} email")
 
     st.divider()
 
     # =========================
-    # 👤 CLIENT LIST (UI pulita)
+    # 👤 CLIENTI LIST (DASHBOARD)
     # =========================
-    st.markdown("### 👤 Clienti")
-
-    for _, c in df.iterrows():
+    for _, c in filtered_df.iterrows():
 
         prezzo = prezzo_base + c["Margine"] + c["Trasporto"]
+        ultimo = c["UltimoPrezzo"]
 
         st.markdown(f"""
-        ### {c['Nome']}
+        ### 👤 {c['Nome']}
         📄 P.IVA: {c['PIVA']}  
-        💰 **{prezzo:.3f} €/L**
+        💰 **{prezzo:.3f} €/L**  
+
+        📌 Ultimo prezzo inviato: 
+        **{f'{ultimo:.3f} €/L' if pd.notna(ultimo) else 'Nessun invio'}**
         """)
 
         col1, col2, col3 = st.columns(3)
 
-        # WhatsApp
         with col1:
             tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
             msg = f"Prezzo oggi {prezzo:.3f} €/L"
             wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
-            st.markdown(f"[📲 WhatsApp]({wa})")
 
-        # Email singola
+            st.markdown(
+                f"""<a href="{wa}" target="_blank"
+                style="display:block;padding:8px;background:#22c55e;color:white;
+                text-align:center;border-radius:10px;text-decoration:none;">
+                💬 Invia messaggio</a>""",
+                unsafe_allow_html=True
+            )
+
         with col2:
             if c["Email"] and pd.notna(c["Email"]):
-                if st.button("📧 Email", key=f"mail_{c['ID']}"):
+                if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
                     invia_email(c["Email"], prezzo)
+
+                    st.session_state.clienti.loc[
+                        st.session_state.clienti["ID"] == c["ID"],
+                        "UltimoPrezzo"
+                    ] = prezzo
+
+                    save_data(st.session_state.clienti)
                     st.success("Inviata")
 
-        # Elimina
         with col3:
             if st.button("🗑️ Elimina", key=f"del_{c['ID']}"):
                 st.session_state.clienti = df[df["ID"] != c["ID"]]
@@ -203,24 +248,32 @@ if st.session_state.page == "dashboard":
         st.divider()
 
 # =========================================================
-# 👤 CLIENTI LIST
+# 👤 CLIENTI PAGE
 # =========================================================
 elif st.session_state.page == "clienti":
 
-    st.markdown("## 👤 Clienti")
+    st.markdown("## 👤 Clienti attivi")
 
-    for _, c in df.iterrows():
+    search = st.text_input("🔍 Cerca cliente")
+    filtered_df = filtra_clienti(df, search)
 
-        st.markdown(f"### {c['Nome']}")
+    for _, c in filtered_df.iterrows():
 
-        c1, c2 = st.columns(2)
+        st.markdown(f"""
+        ### 👤 {c['Nome']}
+        📄 {c['PIVA']}  
+        📞 {c['Telefono']}  
+        💰 Ultimo prezzo: {c['UltimoPrezzo'] if pd.notna(c['UltimoPrezzo']) else 'Nessun invio'}
+        """)
 
-        with c1:
+        col1, col2 = st.columns(2)
+
+        with col1:
             if st.button("✏️ Modifica", key=f"edit_{c['ID']}"):
                 st.session_state.edit_id = c["ID"]
                 st.session_state.page = "cliente"
 
-        with c2:
+        with col2:
             if st.button("🗑️ Elimina", key=f"del_list_{c['ID']}"):
                 st.session_state.clienti = df[df["ID"] != c["ID"]]
                 save_data(st.session_state.clienti)
@@ -229,7 +282,7 @@ elif st.session_state.page == "clienti":
         st.divider()
 
 # =========================================================
-# ➕ CREATE / EDIT CLIENTE
+# ➕ CLIENTE FORM
 # =========================================================
 elif st.session_state.page == "cliente":
 
@@ -243,15 +296,15 @@ elif st.session_state.page == "cliente":
             st.stop()
         c = c.iloc[0]
     else:
-        c = {"Nome": "", "PIVA": "", "Telefono": "", "Email": "", "Margine": 0.0, "Trasporto": 0.0}
+        c = {"Nome":"","PIVA":"","Telefono":"","Email":"","Margine":0.0,"Trasporto":0.0}
 
     nome = st.text_input("Nome", value=c["Nome"])
     piva = st.text_input("P.IVA", value=c["PIVA"])
     tel = st.text_input("Telefono", value=c["Telefono"])
     email = st.text_input("Email", value=c["Email"])
 
-    margine = st.number_input("Margine", value=float(c["Margine"]), step=0.001, format="%.3f")
-    trasporto = st.number_input("Trasporto", value=float(c["Trasporto"]), step=0.001, format="%.3f")
+    margine = st.number_input("Margine", value=float(c["Margine"]), step=0.001)
+    trasporto = st.number_input("Trasporto", value=float(c["Trasporto"]), step=0.001)
 
     if st.button("💾 Salva"):
 
@@ -259,7 +312,7 @@ elif st.session_state.page == "cliente":
             st.session_state.clienti.loc[
                 st.session_state.clienti["ID"] == st.session_state.edit_id,
                 ["Nome","PIVA","Telefono","Email","Margine","Trasporto"]
-            ] = [nome, piva, tel, email, margine, trasporto]
+            ] = [nome,piva,tel,email,margine,trasporto]
 
             st.session_state.edit_id = None
 
@@ -273,13 +326,13 @@ elif st.session_state.page == "cliente":
                 "Telefono": tel,
                 "Email": email,
                 "Margine": margine,
-                "Trasporto": trasporto
+                "Trasporto": trasporto,
+                "UltimoPrezzo": None
             }])
 
             st.session_state.clienti = pd.concat([df, new], ignore_index=True)
 
         save_data(st.session_state.clienti)
-
-        st.success("Salvato!")
+        st.success("Salvato")
         st.session_state.page = "clienti"
         st.rerun()
