@@ -40,7 +40,7 @@ def invia_email(destinatario, prezzo):
         st.error(f"Errore email: {e}")
 
 # =========================
-# 🔒 DECIMALI SICURI (NO LOSS)
+# 🔒 DECIMALI SICURI
 # =========================
 def trim_3_decimals(x):
     if x is None or pd.isna(x):
@@ -50,7 +50,14 @@ def trim_3_decimals(x):
 def format_euro(x):
     if x is None or pd.isna(x):
         return "0,000"
-    return f"{float(Decimal(str(x)).quantize(Decimal('0.001'), rounding=ROUND_DOWN)):.3f}".replace(".", ",")
+    return f"{Decimal(str(x)).quantize(Decimal('0.001'), rounding=ROUND_DOWN)}".replace(".", ",")
+
+def calc_price(base, margine, trasporto):
+    return (
+        Decimal(str(base))
+        + Decimal(str(margine))
+        + Decimal(str(trasporto))
+    ).quantize(Decimal("0.001"), rounding=ROUND_DOWN)
 
 # =========================
 # 💾 DATA
@@ -150,9 +157,10 @@ if st.session_state.page == "dashboard":
     clienti_count = len(df)
     media_margine = trim_3_decimals(df["Margine"].mean()) if not df.empty else 0
 
-    prezzo_medio = trim_3_decimals(
-        (df["Margine"] + df["Trasporto"] + prezzo_base).mean()
-    ) if not df.empty else prezzo_base
+    prezzo_medio = (
+        calc_price(prezzo_base, df["Margine"].mean(), df["Trasporto"].mean())
+        if not df.empty else prezzo_base
+    )
 
     # KPI
     c1, c2 = st.columns(2)
@@ -185,16 +193,14 @@ if st.session_state.page == "dashboard":
 
             if c["Email"] and pd.notna(c["Email"]):
 
-                prezzo = trim_3_decimals(
-                    prezzo_base + c["Margine"] + c["Trasporto"]
-                )
+                prezzo = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
 
-                invia_email(c["Email"], prezzo)
+                invia_email(c["Email"], float(prezzo))
 
                 st.session_state.clienti.loc[
                     st.session_state.clienti["ID"] == c["ID"],
                     "UltimoPrezzo"
-                ] = prezzo
+                ] = float(prezzo)
 
                 count += 1
 
@@ -211,9 +217,7 @@ if st.session_state.page == "dashboard":
 
     for _, c in filtered_dash.iterrows():
 
-        prezzo = trim_3_decimals(
-            prezzo_base + c["Margine"] + c["Trasporto"]
-        )
+        prezzo = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
 
         ultimo = c.get("UltimoPrezzo", None)
         ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
@@ -244,14 +248,14 @@ if st.session_state.page == "dashboard":
             if c["Email"] and pd.notna(c["Email"]):
                 if st.button("📧 Invia email", key=f"mail_{c['ID']}"):
 
-                    prezzo_send = trim_3_decimals(prezzo)
+                    prezzo_send = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
 
-                    invia_email(c["Email"], prezzo_send)
+                    invia_email(c["Email"], float(prezzo_send))
 
                     st.session_state.clienti.loc[
                         st.session_state.clienti["ID"] == c["ID"],
                         "UltimoPrezzo"
-                    ] = prezzo_send
+                    ] = float(prezzo_send)
 
                     save_data(st.session_state.clienti)
                     st.success("Email inviata")
@@ -327,6 +331,9 @@ elif st.session_state.page == "cliente":
     trasporto = st.number_input("Trasporto", value=float(c["Trasporto"]), step=0.001)
 
     if st.button("💾 Salva"):
+
+        margine = float(Decimal(str(margine)).quantize(Decimal("0.001"), rounding=ROUND_DOWN))
+        trasporto = float(Decimal(str(trasporto)).quantize(Decimal("0.001"), rounding=ROUND_DOWN))
 
         if editing:
             st.session_state.clienti.loc[
