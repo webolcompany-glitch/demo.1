@@ -18,12 +18,6 @@ FILE = f"clienti_{azienda}.csv"
 st.markdown(f"## 🏢 Azienda: {azienda.upper()}")
 
 # =========================
-# 💬 MESSAGGI FISSI
-# =========================
-EMAIL_TEMPLATE = "Buongiorno,\n\nIl prezzo di oggi è {prezzo} €/L\n\nGrazie"
-WA_TEMPLATE = "Prezzo oggi {prezzo} €/L"
-
-# =========================
 # 📧 EMAIL
 # =========================
 EMAIL_MITTENTE = "webolcompany@gmail.com"
@@ -31,9 +25,7 @@ PASSWORD_APP = "YOUR_APP_PASSWORD"
 
 def invia_email(destinatario, prezzo):
     try:
-        testo = EMAIL_TEMPLATE.replace("{prezzo}", f"{prezzo:.3f}")
-
-        msg = MIMEText(testo)
+        msg = MIMEText(f"Buongiorno,\n\nIl prezzo di oggi è {prezzo:.3f} €/L\n\nGrazie")
         msg["Subject"] = "Prezzo carburante"
         msg["From"] = EMAIL_MITTENTE
         msg["To"] = destinatario
@@ -43,7 +35,6 @@ def invia_email(destinatario, prezzo):
         server.login(EMAIL_MITTENTE, PASSWORD_APP)
         server.send_message(msg)
         server.quit()
-
     except Exception as e:
         st.error(f"Errore email: {e}")
 
@@ -74,6 +65,7 @@ def load_data():
     if os.path.exists(FILE):
         df = pd.read_csv(FILE)
 
+        # FIX TIPI (IMPORTANTISSIMO)
         for col in ["Nome","PIVA","Telefono","Email"]:
             df[col] = df[col].astype(str)
 
@@ -141,9 +133,9 @@ def card(title, value):
     </div>
     """
 
-# =========================
-# DASHBOARD
-# =========================
+# =========================================================
+# 📊 DASHBOARD
+# =========================================================
 if st.session_state.page == "dashboard":
 
     st.markdown("## ⛽ Dashboard operativa")
@@ -184,7 +176,7 @@ if st.session_state.page == "dashboard":
     st.divider()
 
     # =========================
-    # MASS EMAIL
+    # 🚀 MASS EMAIL
     # =========================
     if st.button("📧 Invia email a tutti"):
 
@@ -208,7 +200,7 @@ if st.session_state.page == "dashboard":
         st.success(f"Email inviate: {count}")
 
     # =========================
-    # CLIENTI LISTA
+    # 👤 LISTA CLIENTI (FIX STABILE)
     # =========================
     st.markdown("### 👤 Clienti")
 
@@ -219,7 +211,8 @@ if st.session_state.page == "dashboard":
 
         prezzo = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
 
-        ultimo_txt = "Nessun invio" if pd.isna(c["UltimoPrezzo"]) else format_euro(c["UltimoPrezzo"]) + " €/L"
+        ultimo = c["UltimoPrezzo"]
+        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
 
         st.markdown(f"""
         ### 👤 {c['Nome']}
@@ -232,8 +225,7 @@ if st.session_state.page == "dashboard":
 
         with col1:
             tel = str(c["Telefono"]).replace("+", "").replace(" ", "")
-
-            msg = WA_TEMPLATE.replace("{prezzo}", format_euro(prezzo))
+            msg = f"Prezzo oggi {format_euro(prezzo)} €/L"
             wa = f"https://wa.me/{tel}?text={msg.replace(' ', '%20')}"
 
             st.markdown(
@@ -243,7 +235,6 @@ if st.session_state.page == "dashboard":
 
         with col2:
             if c["Email"] and pd.notna(c["Email"]):
-
                 if st.button("📧 Email", key=f"mail_{c['ID']}"):
 
                     prezzo_send = calc_price(prezzo_base, c["Margine"], c["Trasporto"])
@@ -266,9 +257,9 @@ if st.session_state.page == "dashboard":
 
         st.divider()
 
-# =========================
-# CLIENTI PAGE
-# =========================
+# =========================================================
+# 👤 CLIENTI PAGE
+# =========================================================
 elif st.session_state.page == "clienti":
 
     st.markdown("## 👤 Clienti")
@@ -302,9 +293,9 @@ elif st.session_state.page == "clienti":
 
         st.divider()
 
-# =========================
-# CLIENTE EDIT
-# =========================
+# =========================================================
+# ➕ CLIENTE
+# =========================================================
 elif st.session_state.page == "cliente":
 
     st.markdown("## ➕ Cliente")
