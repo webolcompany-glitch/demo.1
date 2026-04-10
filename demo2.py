@@ -175,9 +175,6 @@ if st.session_state.page == "dashboard":
 
     st.divider()
 
-    # =========================
-    # 🚀 AZIONE MASSIVA EMAIL (SOPRA CLIENTI)
-    # =========================
     st.markdown("### 🚀 Azioni rapide")
 
     if st.button("📧 Invia email a tutti i clienti in un click"):
@@ -204,9 +201,6 @@ if st.session_state.page == "dashboard":
         save_data(st.session_state.clienti)
         st.success(f"📧 Email inviate a {count} clienti")
 
-    # =========================
-    # 👤 CLIENTI
-    # =========================
     st.markdown("### 👤 Clienti")
 
     search_dash = st.text_input("🔍 Cerca cliente", key="search_dashboard")
@@ -267,9 +261,6 @@ if st.session_state.page == "dashboard":
 
         st.divider()
 
-# =========================================================
-# 👤 CLIENTI PAGE
-# =========================================================
 elif st.session_state.page == "clienti":
 
     st.markdown("## 👤 Clienti attivi")
@@ -304,9 +295,6 @@ elif st.session_state.page == "clienti":
 
         st.divider()
 
-# =========================================================
-# ➕ CLIENTE
-# =========================================================
 elif st.session_state.page == "cliente":
 
     st.markdown("## ➕ Cliente")
@@ -326,8 +314,20 @@ elif st.session_state.page == "cliente":
     tel = st.text_input("Telefono", value=c["Telefono"])
     email = st.text_input("Email", value=c["Email"])
 
-    margine = st.number_input("Margine", value=float(c["Margine"]), step=0.001)
-    trasporto = st.number_input("Trasporto", value=float(c["Trasporto"]), step=0.001)
+    # ✅ FIX QUI (solo questo aggiornato)
+    margine = st.number_input(
+        "Margine",
+        value=float(c["Margine"]),
+        step=0.001,
+        format="%.3f"
+    )
+
+    trasporto = st.number_input(
+        "Trasporto",
+        value=float(c["Trasporto"]),
+        step=0.001,
+        format="%.3f"
+    )
 
     if st.button("💾 Salva"):
 
