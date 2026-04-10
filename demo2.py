@@ -261,7 +261,44 @@ if st.session_state.page == "dashboard":
         st.divider()
 
 # =========================================================
-# ➕ CLIENTE (FIX QUI)
+# 👤 CLIENTI PAGE (RIPRISTINATA)
+# =========================================================
+elif st.session_state.page == "clienti":
+
+    st.markdown("## 👤 Clienti attivi")
+
+    search = st.text_input("🔍 Cerca cliente")
+    filtered_df = filtra_clienti(df, search)
+
+    for _, c in filtered_df.iterrows():
+
+        ultimo = c.get("UltimoPrezzo", None)
+        ultimo_txt = "Nessun invio" if pd.isna(ultimo) else format_euro(ultimo) + " €/L"
+
+        st.markdown(f"""
+        ### 👤 {c['Nome']}
+        📄 {c['PIVA']}  
+        📞 {c['Telefono']}  
+        💰 Ultimo prezzo: {ultimo_txt}
+        """)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("✏️ Modifica", key=f"edit_{c['ID']}"):
+                st.session_state.edit_id = c["ID"]
+                st.session_state.page = "cliente"
+
+        with col2:
+            if st.button("🗑️ Elimina", key=f"del_list_{c['ID']}"):
+                st.session_state.clienti = df[df["ID"] != c["ID"]]
+                save_data(st.session_state.clienti)
+                st.rerun()
+
+        st.divider()
+
+# =========================================================
+# ➕ CLIENTE
 # =========================================================
 elif st.session_state.page == "cliente":
 
